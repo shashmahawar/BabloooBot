@@ -1,16 +1,17 @@
-from time import time
+import datetime
 import utils
 import discord
 from discord.ext import commands
 import asyncio
 import csv, json, datetime, os
 from dotenv import load_dotenv
+import requests
 
 intents = discord.Intents.default()
 intents.members = True
 intents.bans = True
 
-client = commands.Bot(command_prefix='!', intents=intents, activity=discord.Activity(type=discord.ActivityType.watching, name="Facchas"), case_insensitive = True)
+client = commands.Bot(command_prefix='?', intents=intents, activity=discord.Activity(type=discord.ActivityType.watching, name="Facchas"), case_insensitive = True)
 client.remove_command('help')
 
 VCS = []
@@ -20,6 +21,7 @@ with open('discord_ids.json', 'r') as f:
     discord_ids = json.load(f)
 branches = ["AM1","BB1","CE1","CH1","CH7","CS1","CS5","EE1","EE3","ES1","ME1","ME2","MS1","MT1","MT6","PH1","TT1"]
 hostels = ["Aravali","Kumaon","Shivalik","Nilgiri","Karakoram","Udaigiri","Girnar","Jwalamukhi","Zanskar","Satpura","Vindhyachal","Kailash","Himadri","Day Scholar"]
+dayno = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday", 5: "Saturday", 6: "Sunday"}
 
 @client.event
 async def on_ready():
@@ -70,7 +72,7 @@ async def on_message(message):
                 if V["Kerberos"] == kerberos and K != str(message.author.id):
                     user = await client.fetch_user(int(K))
                     goldenmember = await client.fetch_user(886907701672673291)
-                    embed = discord.Embed(description=f"Kerberos is already registered with {user.mention}. Moderators take immediate action." ,color=discord.Color.yellow(), timestamp=datetime.datetime.now())
+                    embed = discord.Embed(description=f"Kerberos is already registered with {user.mention}. Moderators take immediate action." ,color=discord.Color.blue(), timestamp=datetime.datetime.now())
                     embed.set_author(name=f"Kerberos Clash", icon_url="https://icones.pro/wp-content/uploads/2021/05/symbole-d-avertissement-jaune.png")
                     embed.add_field(name="Name", value=utils.kerberos_data[kerberos]["Name"])
                     embed.add_field(name="Kerberos", value=kerberos)
@@ -191,6 +193,49 @@ async def update(ctx, user: discord.Member, kerberos):
         with open('discord_ids.json', 'w') as f:
             json.dump(discord_ids,f)
         await ctx.channel.send(f"{user.name}#{user.discriminator} Updated")
+
+@client.command()
+@commands.has_any_role(915286517071618141,903698939478421554,903694577993670727)
+async def mess(ctx, *, string=None):
+    if not string:
+        for i in ctx.message.author.roles:
+            if i.name in hostels[:13]:
+                hostel = i.name
+    else:
+        string = string.lower().split()
+        for i in hostels[:13]:
+            if i.lower() in string:
+                hostel = i
+                string.remove(i)
+                break
+        else:
+            for i in ctx.message.author.roles:
+                if i.name in hostels[:13]:
+                    hostel = i.name
+        if 'all' in string:
+            r = requests.get(f'https://jasrajsb.github.io/iitd-api/v1/mess-menu/{hostel.lower()}.json')
+            for k in range(7):
+                embed = discord.Embed(title=f'**__{dayno[k]}\'s Mess Menu for {hostel.capitalize()}__**', color=discord.Color.blue())
+                s = r.json()
+                s = s[k]
+                for i in range (len(s["menu"])):
+                    embed.add_field(name=f'{s["menu"][i]["name"]} ({s["menu"][i]["time"]})', value=", ".join(s["menu"][i]["menu"].capitalize().split(",")), inline=False)
+                await ctx.send(embed=embed)
+            return
+        string = ''.join(string)
+        for i in list(dayno.values()):
+            if i[:3].lower() in string:
+                day = list(dayno.values()).index(i)
+                break
+        else:
+            day = datetime.datetime.now().weekday()
+    r = requests.get(f'https://jasrajsb.github.io/iitd-api/v1/mess-menu/{hostel.lower()}.json')
+    r = r.json()
+    r = r[day]
+    embed = discord.Embed(title=f'**__{dayno[day]}\'s Mess Menu for {hostel.capitalize()}__**', color=discord.Color.blue())
+    for i in range (len(r["menu"])):
+        embed.add_field(name=f'{r["menu"][i]["name"]} ({r["menu"][i]["time"]})', value=", ".join(r["menu"][i]["menu"].capitalize().split(",")), inline=False)
+    await ctx.send(embed=embed)
 
 @client.command()
 async def ping(ctx):
